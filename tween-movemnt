@@ -1,7 +1,7 @@
 
 --==================================================
--- TWEEN POSITION CONTROLLER v5
--- Compact UI | Starts Minimized
+-- TWEEN POSITION CONTROLLER v6
+-- Compact | Mobile Friendly | Starts Minimized
 --==================================================
 
 local Players = game:GetService("Players")
@@ -25,6 +25,10 @@ local CONFIG = {
     Danger = Color3.fromRGB(180, 65, 75)
 }
 
+--==================================================
+-- STATE
+--==================================================
+
 local ActiveTween = nil
 local TweenGeneration = 0
 
@@ -33,12 +37,13 @@ local TweenGeneration = 0
 --==================================================
 
 local Previous = PlayerGui:FindFirstChild("TweenController")
+
 if Previous then
     Previous:Destroy()
 end
 
 --==================================================
--- GUI
+-- GUI CREATION
 --==================================================
 
 local function BuildInterface()
@@ -46,8 +51,12 @@ local function BuildInterface()
     local Gui = Instance.new("ScreenGui")
     Gui.Name = "TweenController"
     Gui.ResetOnSpawn = false
+    Gui.DisplayOrder = 9999
+    Gui.IgnoreGuiInset = true
     Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     Gui.Parent = PlayerGui
+
+    -- Main panel
 
     local Main = Instance.new("Frame")
     Main.Name = "Main"
@@ -57,16 +66,20 @@ local function BuildInterface()
     Main.BorderSizePixel = 0
     Main.Active = true
     Main.Visible = false
+    Main.ZIndex = 1
     Main.Parent = Gui
 
     Instance.new("UICorner", Main).CornerRadius =
         UDim.new(0, 12)
+
+    -- Header
 
     local Header = Instance.new("Frame")
     Header.Size = UDim2.new(1, 0, 0, 40)
     Header.BackgroundColor3 = CONFIG.Panel
     Header.BorderSizePixel = 0
     Header.Active = true
+    Header.ZIndex = 2
     Header.Parent = Main
 
     Instance.new("UICorner", Header).CornerRadius =
@@ -76,11 +89,12 @@ local function BuildInterface()
     Title.Position = UDim2.fromOffset(12, 0)
     Title.Size = UDim2.new(1, -75, 1, 0)
     Title.BackgroundTransparency = 1
-    Title.Text = "TWEEN CONTROLLER v5"
+    Title.Text = "TWEEN CONTROLLER v6"
     Title.TextColor3 = CONFIG.Text
     Title.TextSize = 12
     Title.Font = Enum.Font.GothamBold
     Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.ZIndex = 3
     Title.Parent = Header
 
     local Minimize = Instance.new("TextButton")
@@ -90,6 +104,8 @@ local function BuildInterface()
     Minimize.Text = "—"
     Minimize.TextColor3 = CONFIG.Text
     Minimize.TextSize = 17
+    Minimize.Font = Enum.Font.GothamBold
+    Minimize.ZIndex = 3
     Minimize.Parent = Header
 
     Instance.new("UICorner", Minimize).CornerRadius =
@@ -105,6 +121,7 @@ local function BuildInterface()
     Scroll.ScrollBarThickness = 3
     Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     Scroll.CanvasSize = UDim2.new()
+    Scroll.ZIndex = 2
     Scroll.Parent = Main
 
     local Padding = Instance.new("UIPadding")
@@ -172,7 +189,7 @@ local function BuildInterface()
         return Object
     end
 
-    -- Coordinate fields
+    -- Coordinate inputs
 
     Label("STARTING POSITION (OPTIONAL)")
 
@@ -201,15 +218,17 @@ local function BuildInterface()
 
     local Restore = Instance.new("TextButton")
     Restore.Name = "RestoreButton"
-    Restore.Size = UDim2.fromOffset(48, 48)
-    Restore.Position = UDim2.new(1, -68, 1, -95)
+    Restore.Size = UDim2.fromOffset(54, 54)
+    Restore.Position = UDim2.new(0.5, -27, 1, -90)
     Restore.BackgroundColor3 = CONFIG.Accent
+    Restore.BorderSizePixel = 0
     Restore.Text = "T"
     Restore.TextColor3 = CONFIG.Text
-    Restore.TextSize = 19
+    Restore.TextSize = 21
     Restore.Font = Enum.Font.GothamBold
     Restore.Active = true
     Restore.Visible = true
+    Restore.ZIndex = 100
     Restore.Parent = Gui
 
     Instance.new("UICorner", Restore).CornerRadius =
@@ -237,6 +256,10 @@ local function BuildInterface()
     }
 end
 
+--==================================================
+-- INITIALIZE
+--==================================================
+
 local Success, UI = pcall(BuildInterface)
 
 if not Success then
@@ -244,7 +267,12 @@ if not Success then
     return
 end
 
-print("[Tween Controller v5] UI loaded successfully.")
+-- Explicit initial minimized state
+
+UI.Main.Visible = false
+UI.Restore.Visible = true
+
+print("[Tween Controller v6] Started minimized.")
 
 --==================================================
 -- CHARACTER HELPERS
@@ -256,6 +284,7 @@ local function GetRoot()
 end
 
 local function ReadNumber(Box)
+
     if Box.Text == "" then
         return nil
     end
@@ -271,6 +300,7 @@ local function ReadNumber(Box)
 end
 
 local function ReadVector(X, Y, Z)
+
     local A = ReadNumber(X)
     local B = ReadNumber(Y)
     local C = ReadNumber(Z)
@@ -287,6 +317,7 @@ end
 --==================================================
 
 local function CancelTween()
+
     local Tween = ActiveTween
 
     if not Tween then
@@ -342,6 +373,7 @@ UI.StartButton.Activated:Connect(function()
     local StartPosition
 
     if HasStart then
+
         StartPosition = ReadVector(
             UI.StartX,
             UI.StartY,
@@ -352,6 +384,7 @@ UI.StartButton.Activated:Connect(function()
             UI.Status.Text = "Status: Complete start coordinates."
             return
         end
+
     else
         StartPosition = Root.Position
     end
@@ -421,6 +454,7 @@ UI.StartButton.Activated:Connect(function()
         ActiveTween = nil
 
         if PlaybackState == Enum.PlaybackState.Completed then
+
             local CurrentRoot = GetRoot()
 
             if CurrentRoot then
@@ -430,9 +464,11 @@ UI.StartButton.Activated:Connect(function()
 
             UI.Status.Text = "Status: Target reached."
         end
+
     end)
 
     Tween:Play()
+
 end)
 
 --==================================================
@@ -440,11 +476,13 @@ end)
 --==================================================
 
 UI.CancelButton.Activated:Connect(function()
+
     if CancelTween() then
         UI.Status.Text = "Status: Cancelled."
     else
         UI.Status.Text = "Status: No active tween."
     end
+
 end)
 
 --==================================================
@@ -462,7 +500,7 @@ UI.Restore.Activated:Connect(function()
 end)
 
 --==================================================
--- DRAGGING
+-- DRAGGING: MOUSE AND TOUCH
 --==================================================
 
 local function MakeDraggable(Handle, Target)
@@ -482,6 +520,7 @@ local function MakeDraggable(Handle, Target)
             DragStart = Input.Position
             StartPosition = Target.Position
         end
+
     end)
 
     UserInputService.InputChanged:Connect(function(Input)
@@ -502,6 +541,7 @@ local function MakeDraggable(Handle, Target)
                 StartPosition.Y.Offset + Delta.Y
             )
         end
+
     end)
 
     UserInputService.InputEnded:Connect(function(Input)
@@ -512,7 +552,9 @@ local function MakeDraggable(Handle, Target)
             Dragging = false
             DragInput = nil
         end
+
     end)
+
 end
 
 MakeDraggable(UI.Header, UI.Main)
@@ -533,29 +575,38 @@ local function UpdateLayout()
     local Viewport = Camera.ViewportSize
 
     if Viewport.X < 600 then
+
         UI.Main.Size = UDim2.new(0.92, 0, 0.78, 0)
         UI.Main.Position = UDim2.fromScale(0.5, 0.5)
+
     else
+
         UI.Main.Size = UDim2.fromOffset(300, 440)
         UI.Main.Position = UDim2.new(0.5, -150, 0.5, -220)
+
     end
+
 end
 
 UpdateLayout()
 
 if workspace.CurrentCamera then
+
     workspace.CurrentCamera:GetPropertyChangedSignal(
         "ViewportSize"
     ):Connect(UpdateLayout)
+
 end
 
 --==================================================
--- RESPAWN
+-- RESPAWN HANDLING
 --==================================================
 
 Player.CharacterAdded:Connect(function()
+
     CancelTween()
     UI.Status.Text = "Status: Character respawned."
+
 end)
 
-print("[Tween Controller v5] Ready.")
+print("[Tween Controller v6] Ready.")
