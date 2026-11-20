@@ -65,7 +65,7 @@ local function BuildInterface()
     Main.BackgroundColor3 = CONFIG.Background
     Main.BorderSizePixel = 0
     Main.Active = true
-    Main.Visible = true
+    Main.Visible = false
     Main.ZIndex = 1
     Main.Parent = Gui
 
@@ -269,8 +269,8 @@ end
 
 -- Explicit initial minimized state
 
-UI.Main.Visible = true
-UI.Restore.Visible = false
+UI.Main.Visible = false
+UI.Restore.Visible = true
 
 print("[Tween Controller v6] Started minimized.")
 
