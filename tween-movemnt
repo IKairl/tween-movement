@@ -1,0 +1,502 @@
+
+--==================================================
+-- TWEEN POSITION CONTROLLER v2
+--==================================================
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+
+--==================================================
+-- CONFIGURATION
+--==================================================
+
+local CONFIG = {
+	DefaultSpeed = 30,
+	MinSpeed = 1,
+	MaxSpeed = 500,
+
+	Background = Color3.fromRGB(22, 24, 32),
+	Panel = Color3.fromRGB(34, 37, 48),
+	Accent = Color3.fromRGB(105, 125, 255),
+	Text = Color3.fromRGB(240, 240, 245)
+}
+
+--==================================================
+-- CLEANUP
+--==================================================
+
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local Existing = PlayerGui:FindFirstChild("TweenController")
+if Existing then
+	Existing:Destroy()
+end
+
+--==================================================
+-- STATE
+--==================================================
+
+local ActiveTween = nil
+
+--==================================================
+-- CHARACTER HELPERS
+--==================================================
+
+local function GetCharacterRoot()
+	local Character = LocalPlayer.Character
+
+	if not Character then
+		return nil
+	end
+
+	return Character:FindFirstChild("HumanoidRootPart")
+end
+
+local function ReadNumber(Box)
+	if Box.Text == "" then
+		return nil
+	end
+
+	return tonumber(Box.Text)
+end
+
+local function ReadVector(XBox, YBox, ZBox)
+	local X = ReadNumber(XBox)
+	local Y = ReadNumber(YBox)
+	local Z = ReadNumber(ZBox)
+
+	if X == nil or Y == nil or Z == nil then
+		return nil
+	end
+
+	return Vector3.new(X, Y, Z)
+end
+
+--==================================================
+-- STABILIZATION
+--==================================================
+
+local function StabilizeCharacter(ExpectedPosition)
+	local Root = GetCharacterRoot()
+
+	if not Root then
+		return false
+	end
+
+	-- Preserve the current orientation.
+	local CurrentCFrame = Root.CFrame
+
+	-- Stop residual movement.
+	Root.AssemblyLinearVelocity = Vector3.zero
+	Root.AssemblyAngularVelocity = Vector3.zero
+
+	-- Reapply the intended position when supplied.
+	if ExpectedPosition then
+		Root.CFrame = CFrame.new(ExpectedPosition)
+			* (CurrentCFrame - CurrentCFrame.Position)
+	else
+		Root.CFrame = CurrentCFrame
+	end
+
+	return true
+end
+
+--==================================================
+-- GUI
+--==================================================
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "TweenController"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = PlayerGui
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.fromOffset(340, 560)
+Main.Position = UDim2.new(0.5, -170, 0.5, -280)
+Main.BackgroundColor3 = CONFIG.Background
+Main.BorderSizePixel = 0
+Main.Parent = ScreenGui
+
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
+
+local Header = Instance.new("TextLabel")
+Header.Size = UDim2.new(1, 0, 0, 42)
+Header.BackgroundColor3 = CONFIG.Panel
+Header.BorderSizePixel = 0
+Header.Text = "TWEEN POSITION CONTROLLER"
+Header.TextColor3 = CONFIG.Text
+Header.TextSize = 14
+Header.Font = Enum.Font.GothamBold
+Header.Parent = Main
+
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 12)
+
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Position = UDim2.fromOffset(10, 52)
+Scroll.Size = UDim2.new(1, -20, 1, -62)
+Scroll.BackgroundTransparency = 1
+Scroll.BorderSizePixel = 0
+Scroll.ScrollBarThickness = 4
+Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Scroll.CanvasSize = UDim2.new()
+Scroll.Parent = Main
+
+local Padding = Instance.new("UIPadding")
+Padding.PaddingBottom = UDim.new(0, 10)
+Padding.PaddingLeft = UDim.new(0, 5)
+Padding.PaddingRight = UDim.new(0, 5)
+Padding.Parent = Scroll
+
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0, 7)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Parent = Scroll
+
+--==================================================
+-- UI HELPERS
+--==================================================
+
+local function CreateLabel(Text, Height)
+	local Label = Instance.new("TextLabel")
+
+	Label.Size = UDim2.new(1, 0, 0, Height or 25)
+	Label.BackgroundTransparency = 1
+	Label.Text = Text
+	Label.TextColor3 = CONFIG.Text
+	Label.TextSize = 12
+	Label.Font = Enum.Font.GothamMedium
+	Label.TextXAlignment = Enum.TextXAlignment.Left
+	Label.TextWrapped = true
+	Label.Parent = Scroll
+
+	return Label
+end
+
+local function CreateInput(Placeholder)
+	local Box = Instance.new("TextBox")
+
+	Box.Size = UDim2.new(1, 0, 0, 34)
+	Box.BackgroundColor3 = CONFIG.Panel
+	Box.BorderSizePixel = 0
+	Box.PlaceholderText = Placeholder
+	Box.PlaceholderColor3 = Color3.fromRGB(155, 160, 175)
+	Box.Text = ""
+	Box.TextColor3 = CONFIG.Text
+	Box.TextSize = 12
+	Box.Font = Enum.Font.Gotham
+	Box.ClearTextOnFocus = false
+	Box.Parent = Scroll
+
+	Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 7)
+
+	return Box
+end
+
+local function CreateButton(Text, Color)
+	local Button = Instance.new("TextButton")
+
+	Button.Size = UDim2.new(1, 0, 0, 38)
+	Button.BackgroundColor3 = Color or CONFIG.Accent
+	Button.BorderSizePixel = 0
+	Button.Text = Text
+	Button.TextColor3 = CONFIG.Text
+	Button.TextSize = 12
+	Button.Font = Enum.Font.GothamBold
+	Button.Parent = Scroll
+
+	Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 7)
+
+	return Button
+end
+
+--==================================================
+-- INPUT FIELDS
+--==================================================
+
+CreateLabel("STARTING POSITION (OPTIONAL)", 25)
+
+local StartX = CreateInput("Start X (leave blank for current position)")
+local StartY = CreateInput("Start Y")
+local StartZ = CreateInput("Start Z")
+
+CreateLabel("TARGET POSITION (REQUIRED)", 25)
+
+local TargetX = CreateInput("Target X")
+local TargetY = CreateInput("Target Y")
+local TargetZ = CreateInput("Target Z")
+
+CreateLabel("MOVEMENT SPEED (STUDS PER SECOND)", 25)
+
+local SpeedBox = CreateInput("Speed")
+SpeedBox.Text = tostring(CONFIG.DefaultSpeed)
+
+--==================================================
+-- STATUS
+--==================================================
+
+local Status = CreateLabel(
+	"Status: Waiting for coordinates.",
+	45
+)
+
+Status.TextColor3 = Color3.fromRGB(180, 185, 200)
+
+--==================================================
+-- BUTTONS
+--==================================================
+
+local StartButton = CreateButton("START TWEEN")
+
+local CancelButton = CreateButton(
+	"CANCEL TWEEN",
+	Color3.fromRGB(180, 65, 75)
+)
+
+--==================================================
+-- START TWEEN
+--==================================================
+
+StartButton.Activated:Connect(function()
+
+	if ActiveTween then
+		ActiveTween:Cancel()
+		ActiveTween = nil
+	end
+
+	local Root = GetCharacterRoot()
+
+	if not Root then
+		Status.Text = "Status: Character not found."
+		return
+	end
+
+	-- Validate target coordinates.
+
+	local TargetPosition = ReadVector(
+		TargetX,
+		TargetY,
+		TargetZ
+	)
+
+	if not TargetPosition then
+		Status.Text = "Status: Enter all target coordinates."
+		return
+	end
+
+	-- Determine starting coordinates.
+
+	local HasStartInput =
+		StartX.Text ~= ""
+		or StartY.Text ~= ""
+		or StartZ.Text ~= ""
+
+	local StartingPosition
+
+	if HasStartInput then
+
+		StartingPosition = ReadVector(
+			StartX,
+			StartY,
+			StartZ
+		)
+
+		if not StartingPosition then
+			Status.Text = "Status: Complete all start coordinates."
+			return
+		end
+
+	else
+
+		StartingPosition = Root.Position
+
+	end
+
+	-- Validate speed.
+
+	local Speed = tonumber(SpeedBox.Text)
+
+	if not Speed
+		or Speed < CONFIG.MinSpeed
+		or Speed > CONFIG.MaxSpeed then
+
+		Status.Text = "Status: Speed must be between 1 and 500."
+		return
+	end
+
+	-- Calculate distance and duration.
+
+	local Distance = (TargetPosition - StartingPosition).Magnitude
+
+	if Distance == 0 then
+		Status.Text = "Status: Already at target position."
+		return
+	end
+
+	local Duration = Distance / Speed
+
+	-- Apply manual starting position if configured.
+
+	if HasStartInput then
+		Root.CFrame = CFrame.new(StartingPosition)
+	end
+
+	-- Create tween.
+
+	local TweenSettings = TweenInfo.new(
+		Duration,
+		Enum.EasingStyle.Linear,
+		Enum.EasingDirection.Out,
+		0,
+		false,
+		0
+	)
+
+	local Tween = TweenService:Create(
+		Root,
+		TweenSettings,
+		{
+			CFrame = CFrame.new(TargetPosition)
+		}
+	)
+
+	ActiveTween = Tween
+
+	Status.Text = string.format(
+		"Status: Moving | %.1f studs | %.1f seconds",
+		Distance,
+		Duration
+	)
+
+	Tween.Completed:Connect(function(PlaybackState)
+
+		if ActiveTween ~= Tween then
+			return
+		end
+
+		ActiveTween = nil
+
+		if PlaybackState == Enum.PlaybackState.Completed then
+
+			StabilizeCharacter(TargetPosition)
+
+			Status.Text = "Status: Target reached. Velocity cleared."
+
+		elseif PlaybackState == Enum.PlaybackState.Cancelled then
+
+			Status.Text = "Status: Tween cancelled."
+
+		end
+
+	end)
+
+	Tween:Play()
+
+end)
+
+--==================================================
+-- CANCEL TWEEN
+--==================================================
+
+CancelButton.Activated:Connect(function()
+
+	local Tween = ActiveTween
+
+	if not Tween then
+		Status.Text = "Status: No active tween."
+		return
+	end
+
+	local Root = GetCharacterRoot()
+
+	if not Root then
+		ActiveTween = nil
+		Tween:Cancel()
+		Status.Text = "Status: Character unavailable."
+		return
+	end
+
+	-- Capture position before cancellation.
+
+	local CurrentCFrame = Root.CFrame
+
+	-- Invalidate active tween reference first.
+
+	ActiveTween = nil
+
+	Tween:Cancel()
+
+	-- Preserve the exact cancellation position.
+
+	Root.CFrame = CurrentCFrame
+
+	-- Clear residual momentum.
+
+	Root.AssemblyLinearVelocity = Vector3.zero
+	Root.AssemblyAngularVelocity = Vector3.zero
+
+	Status.Text = "Status: Cancelled. Position preserved."
+
+end)
+
+--==================================================
+-- DRAGGABLE WINDOW
+--==================================================
+
+local Dragging = false
+local DragStart
+local StartPosition
+
+Header.InputBegan:Connect(function(Input)
+
+	if Input.UserInputType == Enum.UserInputType.MouseButton1
+		or Input.UserInputType == Enum.UserInputType.Touch then
+
+		Dragging = true
+		DragStart = Input.Position
+		StartPosition = Main.Position
+
+	end
+
+end)
+
+UserInputService.InputChanged:Connect(function(Input)
+
+	if not Dragging then
+		return
+	end
+
+	if Input.UserInputType == Enum.UserInputType.MouseMovement
+		or Input.UserInputType == Enum.UserInputType.Touch then
+
+		local Delta = Input.Position - DragStart
+
+		Main.Position = UDim2.new(
+			StartPosition.X.Scale,
+			StartPosition.X.Offset + Delta.X,
+			StartPosition.Y.Scale,
+			StartPosition.Y.Offset + Delta.Y
+		)
+
+	end
+
+end)
+
+UserInputService.InputEnded:Connect(function(Input)
+
+	if Input.UserInputType == Enum.UserInputType.MouseButton1
+		or Input.UserInputType == Enum.UserInputType.Touch then
+
+		Dragging = false
+
+	end
+
+end)
+
+--==================================================
+-- INITIALISE
+--==================================================
+
+print("[Tween Controller v2] Loaded successfully.")
