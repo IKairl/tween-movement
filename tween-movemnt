@@ -1,19 +1,15 @@
 
 --==================================================
--- TWEEN POSITION CONTROLLER v3
--- Delta-oriented GUI compatibility
+-- TWEEN POSITION CONTROLLER v4
+-- Complete consolidated version
 --==================================================
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
 
-local LocalPlayer = Players.LocalPlayer
-
---==================================================
--- CONFIGURATION
---==================================================
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
 
 local CONFIG = {
     DefaultSpeed = 30,
@@ -30,47 +26,6 @@ local CONFIG = {
 }
 
 --==================================================
--- GUI PARENT
---==================================================
-
-local function GetGuiParent()
-    -- Use executor-provided GUI parent if available.
-    if typeof(gethui) == "function" then
-        local success, result = pcall(gethui)
-
-        if success and result then
-            return result
-        end
-    end
-
-    -- Try CoreGui.
-    local success = pcall(function()
-        local test = Instance.new("Folder")
-        test.Parent = CoreGui
-        test:Destroy()
-    end)
-
-    if success then
-        return CoreGui
-    end
-
-    -- Standard Roblox fallback.
-    return LocalPlayer:WaitForChild("PlayerGui")
-end
-
-local GuiParent = GetGuiParent()
-
---==================================================
--- CLEANUP
---==================================================
-
-local Existing = GuiParent:FindFirstChild("TweenController")
-
-if Existing then
-    Existing:Destroy()
-end
-
---==================================================
 -- STATE
 --==================================================
 
@@ -78,17 +33,239 @@ local ActiveTween = nil
 local TweenGeneration = 0
 
 --==================================================
--- CHARACTER HELPERS
+-- CLEANUP PREVIOUS GUI
 --==================================================
 
-local function GetCharacterRoot()
-    local Character = LocalPlayer.Character
+local Previous = PlayerGui:FindFirstChild("TweenController")
 
-    if not Character then
-        return nil
+if Previous then
+    Previous:Destroy()
+end
+
+--==================================================
+-- GUI CREATION
+--==================================================
+
+local function BuildInterface()
+
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "TweenController"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.Parent = PlayerGui
+
+    local Main = Instance.new("Frame")
+    Main.Name = "Main"
+    Main.Size = UDim2.fromOffset(340, 510)
+    Main.Position = UDim2.new(0.5, -170, 0.5, -255)
+    Main.BackgroundColor3 = CONFIG.Background
+    Main.BorderSizePixel = 0
+    Main.Active = true
+    Main.Parent = ScreenGui
+
+    Instance.new("UICorner", Main).CornerRadius =
+        UDim.new(0, 12)
+
+    local Header = Instance.new("Frame")
+    Header.Size = UDim2.new(1, 0, 0, 44)
+    Header.BackgroundColor3 = CONFIG.Panel
+    Header.BorderSizePixel = 0
+    Header.Active = true
+    Header.Parent = Main
+
+    Instance.new("UICorner", Header).CornerRadius =
+        UDim.new(0, 12)
+
+    local HeaderTitle = Instance.new("TextLabel")
+    HeaderTitle.Position = UDim2.fromOffset(12, 0)
+    HeaderTitle.Size = UDim2.new(1, -90, 1, 0)
+    HeaderTitle.BackgroundTransparency = 1
+    HeaderTitle.Text = "TWEEN CONTROLLER v4"
+    HeaderTitle.TextColor3 = CONFIG.Text
+    HeaderTitle.Font = Enum.Font.GothamBold
+    HeaderTitle.TextSize = 13
+    HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
+    HeaderTitle.Parent = Header
+
+    local Minimize = Instance.new("TextButton")
+    Minimize.Size = UDim2.fromOffset(32, 30)
+    Minimize.Position = UDim2.new(1, -40, 0, 7)
+    Minimize.BackgroundColor3 = CONFIG.Secondary
+    Minimize.Text = "—"
+    Minimize.TextColor3 = CONFIG.Text
+    Minimize.TextSize = 18
+    Minimize.Font = Enum.Font.GothamBold
+    Minimize.Parent = Header
+
+    Instance.new("UICorner", Minimize).CornerRadius =
+        UDim.new(0, 7)
+
+    -- Scrollable content
+
+    local Scroll = Instance.new("ScrollingFrame")
+    Scroll.Position = UDim2.fromOffset(10, 54)
+    Scroll.Size = UDim2.new(1, -20, 1, -64)
+    Scroll.BackgroundTransparency = 1
+    Scroll.BorderSizePixel = 0
+    Scroll.ScrollBarThickness = 4
+    Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Scroll.CanvasSize = UDim2.new()
+    Scroll.Parent = Main
+
+    local Padding = Instance.new("UIPadding")
+    Padding.PaddingTop = UDim.new(0, 4)
+    Padding.PaddingBottom = UDim.new(0, 12)
+    Padding.PaddingLeft = UDim.new(0, 4)
+    Padding.PaddingRight = UDim.new(0, 4)
+    Padding.Parent = Scroll
+
+    local Layout = Instance.new("UIListLayout")
+    Layout.Padding = UDim.new(0, 7)
+    Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    Layout.Parent = Scroll
+
+    -- UI helpers
+
+    local function Label(Text, Height)
+        local Object = Instance.new("TextLabel")
+        Object.Size = UDim2.new(1, 0, 0, Height or 25)
+        Object.BackgroundTransparency = 1
+        Object.Text = Text
+        Object.TextColor3 = CONFIG.Text
+        Object.TextSize = 12
+        Object.Font = Enum.Font.GothamMedium
+        Object.TextXAlignment = Enum.TextXAlignment.Left
+        Object.TextWrapped = true
+        Object.Parent = Scroll
+        return Object
     end
 
-    return Character:FindFirstChild("HumanoidRootPart")
+    local function Input(Placeholder)
+        local Object = Instance.new("TextBox")
+        Object.Size = UDim2.new(1, 0, 0, 36)
+        Object.BackgroundColor3 = CONFIG.Secondary
+        Object.BorderSizePixel = 0
+        Object.PlaceholderText = Placeholder
+        Object.PlaceholderColor3 = CONFIG.Muted
+        Object.Text = ""
+        Object.TextColor3 = CONFIG.Text
+        Object.TextSize = 13
+        Object.Font = Enum.Font.Gotham
+        Object.ClearTextOnFocus = false
+        Object.Parent = Scroll
+
+        Instance.new("UICorner", Object).CornerRadius =
+            UDim.new(0, 7)
+
+        return Object
+    end
+
+    local function Button(Text, Color)
+        local Object = Instance.new("TextButton")
+        Object.Size = UDim2.new(1, 0, 0, 42)
+        Object.BackgroundColor3 = Color or CONFIG.Accent
+        Object.BorderSizePixel = 0
+        Object.Text = Text
+        Object.TextColor3 = CONFIG.Text
+        Object.TextSize = 13
+        Object.Font = Enum.Font.GothamBold
+        Object.Parent = Scroll
+
+        Instance.new("UICorner", Object).CornerRadius =
+            UDim.new(0, 8)
+
+        return Object
+    end
+
+    -- Input fields
+
+    Label("STARTING POSITION (OPTIONAL)", 24)
+
+    local StartX = Input("Start X (blank = current position)")
+    local StartY = Input("Start Y")
+    local StartZ = Input("Start Z")
+
+    Label("TARGET POSITION (REQUIRED)", 24)
+
+    local TargetX = Input("Target X")
+    local TargetY = Input("Target Y")
+    local TargetZ = Input("Target Z")
+
+    Label("MOVEMENT SPEED (STUDS PER SECOND)", 24)
+
+    local SpeedBox = Input("Speed")
+    SpeedBox.Text = tostring(CONFIG.DefaultSpeed)
+
+    -- Status
+
+    local Status = Label("Status: Ready.", 42)
+    Status.TextColor3 = CONFIG.Muted
+
+    local StartButton = Button("START TWEEN")
+    local CancelButton = Button("CANCEL TWEEN", CONFIG.Danger)
+
+    -- Minimized restore button
+
+    local Restore = Instance.new("TextButton")
+    Restore.Name = "RestoreButton"
+    Restore.Size = UDim2.fromOffset(56, 56)
+    Restore.Position = UDim2.new(0.5, -28, 0.5, -28)
+    Restore.BackgroundColor3 = CONFIG.Accent
+    Restore.Text = "T"
+    Restore.TextColor3 = CONFIG.Text
+    Restore.TextSize = 20
+    Restore.Font = Enum.Font.GothamBold
+    Restore.Visible = false
+    Restore.Active = true
+    Restore.Parent = ScreenGui
+
+    Instance.new("UICorner", Restore).CornerRadius =
+        UDim.new(1, 0)
+
+    return {
+        ScreenGui = ScreenGui,
+        Main = Main,
+        Header = Header,
+        Minimize = Minimize,
+        Restore = Restore,
+        StartX = StartX,
+        StartY = StartY,
+        StartZ = StartZ,
+        TargetX = TargetX,
+        TargetY = TargetY,
+        TargetZ = TargetZ,
+        SpeedBox = SpeedBox,
+        Status = Status,
+        StartButton = StartButton,
+        CancelButton = CancelButton
+    }
+end
+
+--==================================================
+-- INITIALIZE GUI WITH ERROR REPORTING
+--==================================================
+
+local UI
+
+local Success, ErrorMessage = pcall(function()
+    UI = BuildInterface()
+end)
+
+if not Success then
+    warn("[Tween Controller] UI creation failed:")
+    warn(ErrorMessage)
+    return
+end
+
+print("[Tween Controller] UI created successfully.")
+
+--==================================================
+-- HELPERS
+--==================================================
+
+local function GetRoot()
+    local Character = Player.Character
+    return Character and Character:FindFirstChild("HumanoidRootPart")
 end
 
 local function ReadNumber(Box)
@@ -106,226 +283,33 @@ local function ReadNumber(Box)
     return Number
 end
 
-local function ReadVector(XBox, YBox, ZBox)
-    local X = ReadNumber(XBox)
-    local Y = ReadNumber(YBox)
-    local Z = ReadNumber(ZBox)
+local function ReadVector(X, Y, Z)
+    local A = ReadNumber(X)
+    local B = ReadNumber(Y)
+    local C = ReadNumber(Z)
 
-    if X == nil or Y == nil or Z == nil then
+    if A == nil or B == nil or C == nil then
         return nil
     end
 
-    return Vector3.new(X, Y, Z)
+    return Vector3.new(A, B, C)
 end
 
 --==================================================
--- GUI
+-- CANCEL TWEEN
 --==================================================
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "TweenController"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-local ParentSuccess, ParentError = pcall(function()
-    ScreenGui.Parent = GuiParent
-end)
-
-if not ParentSuccess then
-    warn("[Tween Controller] GUI parenting failed:", ParentError)
-    return
-end
-
-local Main = Instance.new("Frame")
-Main.Name = "Main"
-Main.Size = UDim2.fromOffset(340, 510)
-Main.Position = UDim2.new(0.5, -170, 0.5, -255)
-Main.BackgroundColor3 = CONFIG.Background
-Main.BorderSizePixel = 0
-Main.Active = true
-Main.Parent = ScreenGui
-
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
-
-local SizeConstraint = Instance.new("UISizeConstraint")
-SizeConstraint.MinSize = Vector2.new(280, 300)
-SizeConstraint.MaxSize = Vector2.new(500, 700)
-SizeConstraint.Parent = Main
-
---==================================================
--- HEADER
---==================================================
-
-local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 44)
-Header.BackgroundColor3 = CONFIG.Panel
-Header.BorderSizePixel = 0
-Header.Active = true
-Header.Parent = Main
-
-Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 12)
-
-local HeaderTitle = Instance.new("TextLabel")
-HeaderTitle.Position = UDim2.fromOffset(12, 0)
-HeaderTitle.Size = UDim2.new(1, -90, 1, 0)
-HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Text = "TWEEN CONTROLLER v3"
-HeaderTitle.TextColor3 = CONFIG.Text
-HeaderTitle.Font = Enum.Font.GothamBold
-HeaderTitle.TextSize = 13
-HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
-HeaderTitle.Parent = Header
-
-local MinimizeButton = Instance.new("TextButton")
-MinimizeButton.Size = UDim2.fromOffset(32, 30)
-MinimizeButton.Position = UDim2.new(1, -40, 0, 7)
-MinimizeButton.BackgroundColor3 = CONFIG.Secondary
-MinimizeButton.Text = "—"
-MinimizeButton.TextColor3 = CONFIG.Text
-MinimizeButton.Font = Enum.Font.GothamBold
-MinimizeButton.TextSize = 18
-MinimizeButton.Parent = Header
-
-Instance.new("UICorner", MinimizeButton).CornerRadius = UDim.new(0, 7)
-
---==================================================
--- SCROLL AREA
---==================================================
-
-local Scroll = Instance.new("ScrollingFrame")
-Scroll.Position = UDim2.fromOffset(10, 54)
-Scroll.Size = UDim2.new(1, -20, 1, -64)
-Scroll.BackgroundTransparency = 1
-Scroll.BorderSizePixel = 0
-Scroll.ScrollBarThickness = 4
-Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-Scroll.CanvasSize = UDim2.new()
-Scroll.Parent = Main
-
-local Padding = Instance.new("UIPadding")
-Padding.PaddingTop = UDim.new(0, 4)
-Padding.PaddingBottom = UDim.new(0, 12)
-Padding.PaddingLeft = UDim.new(0, 4)
-Padding.PaddingRight = UDim.new(0, 4)
-Padding.Parent = Scroll
-
-local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0, 7)
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Layout.Parent = Scroll
-
---==================================================
--- UI HELPERS
---==================================================
-
-local function CreateLabel(Text, Height)
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(1, 0, 0, Height or 25)
-    Label.BackgroundTransparency = 1
-    Label.Text = Text
-    Label.TextColor3 = CONFIG.Text
-    Label.TextSize = 12
-    Label.Font = Enum.Font.GothamMedium
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.TextWrapped = true
-    Label.Parent = Scroll
-
-    return Label
-end
-
-local function CreateInput(Placeholder)
-    local Box = Instance.new("TextBox")
-    Box.Size = UDim2.new(1, 0, 0, 36)
-    Box.BackgroundColor3 = CONFIG.Secondary
-    Box.BorderSizePixel = 0
-    Box.PlaceholderText = Placeholder
-    Box.PlaceholderColor3 = CONFIG.Muted
-    Box.Text = ""
-    Box.TextColor3 = CONFIG.Text
-    Box.TextSize = 13
-    Box.Font = Enum.Font.Gotham
-    Box.ClearTextOnFocus = false
-    Box.TextEditable = true
-    Box.Parent = Scroll
-
-    Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 7)
-
-    return Box
-end
-
-local function CreateButton(Text, Color)
-    local Button = Instance.new("TextButton")
-    Button.Size = UDim2.new(1, 0, 0, 42)
-    Button.BackgroundColor3 = Color or CONFIG.Accent
-    Button.BorderSizePixel = 0
-    Button.Text = Text
-    Button.TextColor3 = CONFIG.Text
-    Button.TextSize = 13
-    Button.Font = Enum.Font.GothamBold
-    Button.AutoButtonColor = true
-    Button.Parent = Scroll
-
-    Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 8)
-
-    return Button
-end
-
---==================================================
--- INPUT FIELDS
---==================================================
-
-CreateLabel("STARTING POSITION (OPTIONAL)", 24)
-
-local StartX = CreateInput("Start X (blank = current position)")
-local StartY = CreateInput("Start Y")
-local StartZ = CreateInput("Start Z")
-
-CreateLabel("TARGET POSITION (REQUIRED)", 24)
-
-local TargetX = CreateInput("Target X")
-local TargetY = CreateInput("Target Y")
-local TargetZ = CreateInput("Target Z")
-
-CreateLabel("MOVEMENT SPEED (STUDS PER SECOND)", 24)
-
-local SpeedBox = CreateInput("Speed")
-SpeedBox.Text = tostring(CONFIG.DefaultSpeed)
-
---==================================================
--- STATUS
---==================================================
-
-local Status = CreateLabel("Status: Ready.", 42)
-Status.TextColor3 = CONFIG.Muted
-
---==================================================
--- BUTTONS
---==================================================
-
-local StartButton = CreateButton("START TWEEN")
-
-local CancelButton = CreateButton(
-    "CANCEL TWEEN",
-    CONFIG.Danger
-)
-
---==================================================
--- MOVEMENT CONTROL
---==================================================
-
-local function CancelActiveTween()
+local function CancelTween()
     local Tween = ActiveTween
 
     if not Tween then
         return false
     end
 
-    -- Invalidate the completion callback.
     ActiveTween = nil
     TweenGeneration += 1
 
-    -- Capture the current position.
-    local Root = GetCharacterRoot()
+    local Root = GetRoot()
     local CurrentCFrame = Root and Root.CFrame
 
     Tween:Cancel()
@@ -343,102 +327,98 @@ end
 -- START TWEEN
 --==================================================
 
-StartButton.Activated:Connect(function()
+UI.StartButton.Activated:Connect(function()
 
-    local Root = GetCharacterRoot()
+    local Root = GetRoot()
 
     if not Root then
-        Status.Text = "Status: Character unavailable."
+        UI.Status.Text = "Status: Character unavailable."
         return
     end
 
-    local TargetPosition = ReadVector(
-        TargetX,
-        TargetY,
-        TargetZ
+    local Target = ReadVector(
+        UI.TargetX,
+        UI.TargetY,
+        UI.TargetZ
     )
 
-    if not TargetPosition then
-        Status.Text = "Status: Enter valid target coordinates."
+    if not Target then
+        UI.Status.Text = "Status: Enter valid target coordinates."
         return
     end
 
-    local HasStartInput =
-        StartX.Text ~= ""
-        or StartY.Text ~= ""
-        or StartZ.Text ~= ""
+    local HasStart =
+        UI.StartX.Text ~= ""
+        or UI.StartY.Text ~= ""
+        or UI.StartZ.Text ~= ""
 
-    local StartingPosition
+    local StartPosition
 
-    if HasStartInput then
-        StartingPosition = ReadVector(
-            StartX,
-            StartY,
-            StartZ
+    if HasStart then
+        StartPosition = ReadVector(
+            UI.StartX,
+            UI.StartY,
+            UI.StartZ
         )
 
-        if not StartingPosition then
-            Status.Text = "Status: Complete all start coordinates."
+        if not StartPosition then
+            UI.Status.Text = "Status: Complete all start coordinates."
             return
         end
     else
-        StartingPosition = Root.Position
+        StartPosition = Root.Position
     end
 
-    local Speed = ReadNumber(SpeedBox)
+    local Speed = ReadNumber(UI.SpeedBox)
 
     if not Speed or Speed < CONFIG.MinSpeed
         or Speed > CONFIG.MaxSpeed then
-        Status.Text = "Status: Speed must be 1–500."
+        UI.Status.Text = "Status: Speed must be 1–500."
         return
     end
 
-    -- Stop any existing tween.
-    CancelActiveTween()
+    CancelTween()
 
-    Root = GetCharacterRoot()
+    Root = GetRoot()
 
     if not Root then
-        Status.Text = "Status: Character unavailable."
+        UI.Status.Text = "Status: Character unavailable."
         return
     end
 
-    -- Apply optional starting position.
-    if HasStartInput then
-        Root.CFrame = CFrame.new(StartingPosition)
+    if HasStart then
+        Root.CFrame = CFrame.new(StartPosition)
     else
-        StartingPosition = Root.Position
+        StartPosition = Root.Position
     end
 
-    local Distance = (TargetPosition - StartingPosition).Magnitude
+    local Distance = (Target - StartPosition).Magnitude
 
     if Distance <= 0.001 then
-        Status.Text = "Status: Already at target."
+        UI.Status.Text = "Status: Already at target."
         return
     end
 
     local Duration = Distance / Speed
 
-    local TweenSettings = TweenInfo.new(
-        Duration,
-        Enum.EasingStyle.Linear,
-        Enum.EasingDirection.Out
-    )
-
     local Tween = TweenService:Create(
         Root,
-        TweenSettings,
+        TweenInfo.new(
+            Duration,
+            Enum.EasingStyle.Linear,
+            Enum.EasingDirection.Out
+        ),
         {
-            CFrame = CFrame.new(TargetPosition)
+            CFrame = CFrame.new(Target)
         }
     )
 
     TweenGeneration += 1
-    local ThisGeneration = TweenGeneration
+    local Generation = TweenGeneration
 
     ActiveTween = Tween
 
-    Status.Text = string.format(
+    UI.Status.Text = string.format(
         "Status: Moving | %.1f studs | %.2f seconds",
         Distance,
         Duration
@@ -447,74 +427,55 @@ StartButton.Activated:Connect(function()
     Tween.Completed:Connect(function(PlaybackState)
 
         if ActiveTween ~= Tween
-            or TweenGeneration ~= ThisGeneration then
+            or TweenGeneration ~= Generation then
             return
         end
 
         ActiveTween = nil
 
         if PlaybackState == Enum.PlaybackState.Completed then
-            local CurrentRoot = GetCharacterRoot()
+            local CurrentRoot = GetRoot()
 
             if CurrentRoot then
                 CurrentRoot.AssemblyLinearVelocity = Vector3.zero
                 CurrentRoot.AssemblyAngularVelocity = Vector3.zero
             end
 
-            Status.Text = "Status: Target reached."
+            UI.Status.Text = "Status: Target reached."
         end
-
     end)
 
     Tween:Play()
-
 end)
 
 --==================================================
 -- CANCEL BUTTON
 --==================================================
 
-CancelButton.Activated:Connect(function()
-
-    if CancelActiveTween() then
-        Status.Text = "Status: Cancelled. Current position preserved."
+UI.CancelButton.Activated:Connect(function()
+    if CancelTween() then
+        UI.Status.Text = "Status: Cancelled."
     else
-        Status.Text = "Status: No active tween."
+        UI.Status.Text = "Status: No active tween."
     end
-
 end)
 
 --==================================================
--- MINIMISE / RESTORE
+-- MINIMIZE / RESTORE
 --==================================================
 
-local MiniButton = Instance.new("TextButton")
-MiniButton.Name = "RestoreButton"
-MiniButton.Size = UDim2.fromOffset(56, 56)
-MiniButton.Position = UDim2.new(0.5, -28, 0.5, -28)
-MiniButton.BackgroundColor3 = CONFIG.Accent
-MiniButton.Text = "T"
-MiniButton.TextColor3 = CONFIG.Text
-MiniButton.TextSize = 20
-MiniButton.Font = Enum.Font.GothamBold
-MiniButton.Visible = false
-MiniButton.Active = true
-MiniButton.Parent = ScreenGui
-
-Instance.new("UICorner", MiniButton).CornerRadius = UDim.new(1, 0)
-
-MinimizeButton.Activated:Connect(function()
-    Main.Visible = false
-    MiniButton.Visible = true
+UI.Minimize.Activated:Connect(function()
+    UI.Main.Visible = false
+    UI.Restore.Visible = true
 end)
 
-MiniButton.Activated:Connect(function()
-    Main.Visible = true
-    MiniButton.Visible = false
+UI.Restore.Activated:Connect(function()
+    UI.Main.Visible = true
+    UI.Restore.Visible = false
 end)
 
 --==================================================
--- DRAGGING: TOUCH AND MOUSE
+-- DRAGGING: MOUSE AND TOUCH
 --==================================================
 
 local function MakeDraggable(Handle, Target)
@@ -539,11 +500,9 @@ local function MakeDraggable(Handle, Target)
             return
         end
 
-        local IsRelevant =
-            Input == DragInput
-            or Input.UserInputType == Enum.UserInputType.MouseMovement
+        if Input == DragInput
+            or Input.UserInputType == Enum.UserInputType.MouseMovement then
 
-        if IsRelevant then
             local Delta = Input.Position - DragStart
 
             Target.Position = UDim2.new(
@@ -558,20 +517,21 @@ local function MakeDraggable(Handle, Target)
     UserInputService.InputEnded:Connect(function(Input)
         if Input == DragInput
             or Input.UserInputType == Enum.UserInputType.MouseButton1 then
+
             Dragging = false
             DragInput = nil
         end
     end)
 end
 
-MakeDraggable(Header, Main)
-MakeDraggable(MiniButton, MiniButton)
+MakeDraggable(UI.Header, UI.Main)
+MakeDraggable(UI.Restore, UI.Restore)
 
 --==================================================
--- RESPONSIVE SIZING
+-- RESPONSIVE LAYOUT
 --==================================================
 
-local function UpdateSize()
+local function UpdateLayout()
     local Camera = workspace.CurrentCamera
 
     if not Camera then
@@ -581,31 +541,29 @@ local function UpdateSize()
     local Viewport = Camera.ViewportSize
 
     if Viewport.X < 600 then
-        Main.Size = UDim2.new(0.92, 0, 0.82, 0)
-        Main.Position = UDim2.fromScale(0.5, 0.5)
+        UI.Main.Size = UDim2.new(0.92, 0, 0.82, 0)
+        UI.Main.Position = UDim2.fromScale(0.5, 0.5)
     else
-        Main.Size = UDim2.fromOffset(340, 510)
-        Main.Position = UDim2.new(0.5, -170, 0.5, -255)
+        UI.Main.Size = UDim2.fromOffset(340, 510)
+        UI.Main.Position = UDim2.new(0.5, -170, 0.5, -255)
     end
 end
 
-UpdateSize()
+UpdateLayout()
 
 if workspace.CurrentCamera then
-    workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateSize)
+    workspace.CurrentCamera:GetPropertyChangedSignal(
+        "ViewportSize"
+    ):Connect(UpdateLayout)
 end
 
 --==================================================
 -- RESPAWN HANDLING
 --==================================================
 
-LocalPlayer.CharacterAdded:Connect(function()
-    CancelActiveTween()
-    Status.Text = "Status: Character respawned."
+Player.CharacterAdded:Connect(function()
+    CancelTween()
+    UI.Status.Text = "Status: Character respawned."
 end)
 
---==================================================
--- INITIALISE
---==================================================
-
-print("[Tween Controller v3] Loaded successfully.")
+print("[Tween Controller v4] Loaded successfully.")
