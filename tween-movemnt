@@ -1,7 +1,7 @@
 
 --==================================================
--- TWEEN POSITION CONTROLLER v4
--- Complete consolidated version
+-- TWEEN POSITION CONTROLLER v5
+-- Compact UI | Starts Minimized
 --==================================================
 
 local Players = game:GetService("Players")
@@ -25,49 +25,45 @@ local CONFIG = {
     Danger = Color3.fromRGB(180, 65, 75)
 }
 
---==================================================
--- STATE
---==================================================
-
 local ActiveTween = nil
 local TweenGeneration = 0
 
 --==================================================
--- CLEANUP PREVIOUS GUI
+-- CLEANUP
 --==================================================
 
 local Previous = PlayerGui:FindFirstChild("TweenController")
-
 if Previous then
     Previous:Destroy()
 end
 
 --==================================================
--- GUI CREATION
+-- GUI
 --==================================================
 
 local function BuildInterface()
 
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "TweenController"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = PlayerGui
+    local Gui = Instance.new("ScreenGui")
+    Gui.Name = "TweenController"
+    Gui.ResetOnSpawn = false
+    Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    Gui.Parent = PlayerGui
 
     local Main = Instance.new("Frame")
     Main.Name = "Main"
-    Main.Size = UDim2.fromOffset(340, 510)
-    Main.Position = UDim2.new(0.5, -170, 0.5, -255)
+    Main.Size = UDim2.fromOffset(300, 440)
+    Main.Position = UDim2.new(0.5, -150, 0.5, -220)
     Main.BackgroundColor3 = CONFIG.Background
     Main.BorderSizePixel = 0
     Main.Active = true
-    Main.Parent = ScreenGui
+    Main.Visible = false
+    Main.Parent = Gui
 
     Instance.new("UICorner", Main).CornerRadius =
         UDim.new(0, 12)
 
     local Header = Instance.new("Frame")
-    Header.Size = UDim2.new(1, 0, 0, 44)
+    Header.Size = UDim2.new(1, 0, 0, 40)
     Header.BackgroundColor3 = CONFIG.Panel
     Header.BorderSizePixel = 0
     Header.Active = true
@@ -76,51 +72,50 @@ local function BuildInterface()
     Instance.new("UICorner", Header).CornerRadius =
         UDim.new(0, 12)
 
-    local HeaderTitle = Instance.new("TextLabel")
-    HeaderTitle.Position = UDim2.fromOffset(12, 0)
-    HeaderTitle.Size = UDim2.new(1, -90, 1, 0)
-    HeaderTitle.BackgroundTransparency = 1
-    HeaderTitle.Text = "TWEEN CONTROLLER v4"
-    HeaderTitle.TextColor3 = CONFIG.Text
-    HeaderTitle.Font = Enum.Font.GothamBold
-    HeaderTitle.TextSize = 13
-    HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
-    HeaderTitle.Parent = Header
+    local Title = Instance.new("TextLabel")
+    Title.Position = UDim2.fromOffset(12, 0)
+    Title.Size = UDim2.new(1, -75, 1, 0)
+    Title.BackgroundTransparency = 1
+    Title.Text = "TWEEN CONTROLLER v5"
+    Title.TextColor3 = CONFIG.Text
+    Title.TextSize = 12
+    Title.Font = Enum.Font.GothamBold
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Parent = Header
 
     local Minimize = Instance.new("TextButton")
-    Minimize.Size = UDim2.fromOffset(32, 30)
-    Minimize.Position = UDim2.new(1, -40, 0, 7)
+    Minimize.Size = UDim2.fromOffset(28, 28)
+    Minimize.Position = UDim2.new(1, -35, 0, 6)
     Minimize.BackgroundColor3 = CONFIG.Secondary
     Minimize.Text = "—"
     Minimize.TextColor3 = CONFIG.Text
-    Minimize.TextSize = 18
-    Minimize.Font = Enum.Font.GothamBold
+    Minimize.TextSize = 17
     Minimize.Parent = Header
 
     Instance.new("UICorner", Minimize).CornerRadius =
-        UDim.new(0, 7)
+        UDim.new(0, 6)
 
     -- Scrollable content
 
     local Scroll = Instance.new("ScrollingFrame")
-    Scroll.Position = UDim2.fromOffset(10, 54)
-    Scroll.Size = UDim2.new(1, -20, 1, -64)
+    Scroll.Position = UDim2.fromOffset(9, 48)
+    Scroll.Size = UDim2.new(1, -18, 1, -57)
     Scroll.BackgroundTransparency = 1
     Scroll.BorderSizePixel = 0
-    Scroll.ScrollBarThickness = 4
+    Scroll.ScrollBarThickness = 3
     Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
     Scroll.CanvasSize = UDim2.new()
     Scroll.Parent = Main
 
     local Padding = Instance.new("UIPadding")
-    Padding.PaddingTop = UDim.new(0, 4)
-    Padding.PaddingBottom = UDim.new(0, 12)
-    Padding.PaddingLeft = UDim.new(0, 4)
-    Padding.PaddingRight = UDim.new(0, 4)
+    Padding.PaddingTop = UDim.new(0, 3)
+    Padding.PaddingBottom = UDim.new(0, 10)
+    Padding.PaddingLeft = UDim.new(0, 3)
+    Padding.PaddingRight = UDim.new(0, 3)
     Padding.Parent = Scroll
 
     local Layout = Instance.new("UIListLayout")
-    Layout.Padding = UDim.new(0, 7)
+    Layout.Padding = UDim.new(0, 6)
     Layout.SortOrder = Enum.SortOrder.LayoutOrder
     Layout.Parent = Scroll
 
@@ -128,11 +123,11 @@ local function BuildInterface()
 
     local function Label(Text, Height)
         local Object = Instance.new("TextLabel")
-        Object.Size = UDim2.new(1, 0, 0, Height or 25)
+        Object.Size = UDim2.new(1, 0, 0, Height or 22)
         Object.BackgroundTransparency = 1
         Object.Text = Text
         Object.TextColor3 = CONFIG.Text
-        Object.TextSize = 12
+        Object.TextSize = 11
         Object.Font = Enum.Font.GothamMedium
         Object.TextXAlignment = Enum.TextXAlignment.Left
         Object.TextWrapped = true
@@ -142,16 +137,33 @@ local function BuildInterface()
 
     local function Input(Placeholder)
         local Object = Instance.new("TextBox")
-        Object.Size = UDim2.new(1, 0, 0, 36)
+        Object.Size = UDim2.new(1, 0, 0, 32)
         Object.BackgroundColor3 = CONFIG.Secondary
         Object.BorderSizePixel = 0
         Object.PlaceholderText = Placeholder
         Object.PlaceholderColor3 = CONFIG.Muted
         Object.Text = ""
         Object.TextColor3 = CONFIG.Text
-        Object.TextSize = 13
+        Object.TextSize = 12
         Object.Font = Enum.Font.Gotham
         Object.ClearTextOnFocus = false
+        Object.Parent = Scroll
+
+        Instance.new("UICorner", Object).CornerRadius =
+            UDim.new(0, 6)
+
+        return Object
+    end
+
+    local function Button(Text, Color)
+        local Object = Instance.new("TextButton")
+        Object.Size = UDim2.new(1, 0, 0, 36)
+        Object.BackgroundColor3 = Color or CONFIG.Accent
+        Object.BorderSizePixel = 0
+        Object.Text = Text
+        Object.TextColor3 = CONFIG.Text
+        Object.TextSize = 12
+        Object.Font = Enum.Font.GothamBold
         Object.Parent = Scroll
 
         Instance.new("UICorner", Object).CornerRadius =
@@ -160,80 +172,64 @@ local function BuildInterface()
         return Object
     end
 
-    local function Button(Text, Color)
-        local Object = Instance.new("TextButton")
-        Object.Size = UDim2.new(1, 0, 0, 42)
-        Object.BackgroundColor3 = Color or CONFIG.Accent
-        Object.BorderSizePixel = 0
-        Object.Text = Text
-        Object.TextColor3 = CONFIG.Text
-        Object.TextSize = 13
-        Object.Font = Enum.Font.GothamBold
-        Object.Parent = Scroll
+    -- Coordinate fields
 
-        Instance.new("UICorner", Object).CornerRadius =
-            UDim.new(0, 8)
+    Label("STARTING POSITION (OPTIONAL)")
 
-        return Object
-    end
-
-    -- Input fields
-
-    Label("STARTING POSITION (OPTIONAL)", 24)
-
-    local StartX = Input("Start X (blank = current position)")
+    local StartX = Input("Start X (blank = current)")
     local StartY = Input("Start Y")
     local StartZ = Input("Start Z")
 
-    Label("TARGET POSITION (REQUIRED)", 24)
+    Label("TARGET POSITION")
 
     local TargetX = Input("Target X")
     local TargetY = Input("Target Y")
     local TargetZ = Input("Target Z")
 
-    Label("MOVEMENT SPEED (STUDS PER SECOND)", 24)
+    Label("MOVEMENT SPEED (STUDS/SECOND)")
 
     local SpeedBox = Input("Speed")
     SpeedBox.Text = tostring(CONFIG.DefaultSpeed)
 
-    -- Status
-
-    local Status = Label("Status: Ready.", 42)
+    local Status = Label("Status: Ready.", 35)
     Status.TextColor3 = CONFIG.Muted
 
     local StartButton = Button("START TWEEN")
     local CancelButton = Button("CANCEL TWEEN", CONFIG.Danger)
 
-    -- Minimized restore button
+    -- Floating restore button
 
     local Restore = Instance.new("TextButton")
     Restore.Name = "RestoreButton"
-    Restore.Size = UDim2.fromOffset(56, 56)
-    Restore.Position = UDim2.new(0.5, -28, 0.5, -28)
+    Restore.Size = UDim2.fromOffset(48, 48)
+    Restore.Position = UDim2.new(1, -68, 1, -95)
     Restore.BackgroundColor3 = CONFIG.Accent
     Restore.Text = "T"
     Restore.TextColor3 = CONFIG.Text
-    Restore.TextSize = 20
+    Restore.TextSize = 19
     Restore.Font = Enum.Font.GothamBold
-    Restore.Visible = true
     Restore.Active = true
-    Restore.Parent = ScreenGui
+    Restore.Visible = true
+    Restore.Parent = Gui
 
     Instance.new("UICorner", Restore).CornerRadius =
         UDim.new(1, 0)
 
     return {
-        ScreenGui = ScreenGui,
+        Gui = Gui,
         Main = Main,
         Header = Header,
         Minimize = Minimize,
         Restore = Restore,
+
         StartX = StartX,
         StartY = StartY,
         StartZ = StartZ,
+
         TargetX = TargetX,
         TargetY = TargetY,
         TargetZ = TargetZ,
+
         SpeedBox = SpeedBox,
         Status = Status,
         StartButton = StartButton,
@@ -241,26 +237,17 @@ local function BuildInterface()
     }
 end
 
---==================================================
--- INITIALIZE GUI WITH ERROR REPORTING
---==================================================
-
-local UI
-
-local Success, ErrorMessage = pcall(function()
-    UI = BuildInterface()
-end)
+local Success, UI = pcall(BuildInterface)
 
 if not Success then
-    warn("[Tween Controller] UI creation failed:")
-    warn(ErrorMessage)
+    warn("[Tween Controller] UI creation failed:", UI)
     return
 end
 
-print("[Tween Controller] UI created successfully.")
+print("[Tween Controller v5] UI loaded successfully.")
 
 --==================================================
--- HELPERS
+-- CHARACTER HELPERS
 --==================================================
 
 local function GetRoot()
@@ -362,7 +349,7 @@ UI.StartButton.Activated:Connect(function()
         )
 
         if not StartPosition then
-            UI.Status.Text = "Status: Complete all start coordinates."
+            UI.Status.Text = "Status: Complete start coordinates."
             return
         end
     else
@@ -419,7 +406,7 @@ UI.StartButton.Activated:Connect(function()
     ActiveTween = Tween
 
     UI.Status.Text = string.format(
-        "Status: Moving | %.1f studs | %.2f seconds",
+        "Status: Moving | %.1f studs | %.2f sec",
         Distance,
         Duration
     )
@@ -475,16 +462,18 @@ UI.Restore.Activated:Connect(function()
 end)
 
 --==================================================
--- DRAGGING: MOUSE AND TOUCH
+-- DRAGGING
 --==================================================
 
 local function MakeDraggable(Handle, Target)
+
     local Dragging = false
     local DragInput
     local DragStart
     local StartPosition
 
     Handle.InputBegan:Connect(function(Input)
+
         if Input.UserInputType == Enum.UserInputType.MouseButton1
             or Input.UserInputType == Enum.UserInputType.Touch then
 
@@ -496,6 +485,7 @@ local function MakeDraggable(Handle, Target)
     end)
 
     UserInputService.InputChanged:Connect(function(Input)
+
         if not Dragging then
             return
         end
@@ -515,6 +505,7 @@ local function MakeDraggable(Handle, Target)
     end)
 
     UserInputService.InputEnded:Connect(function(Input)
+
         if Input == DragInput
             or Input.UserInputType == Enum.UserInputType.MouseButton1 then
 
@@ -526,13 +517,13 @@ end
 
 MakeDraggable(UI.Header, UI.Main)
 MakeDraggable(UI.Restore, UI.Restore)
-UI.Main.Visible = false
-UI.Restore.Visible = true
+
 --==================================================
--- RESPONSIVE LAYOUT
+-- RESPONSIVE SIZING
 --==================================================
 
 local function UpdateLayout()
+
     local Camera = workspace.CurrentCamera
 
     if not Camera then
@@ -542,11 +533,11 @@ local function UpdateLayout()
     local Viewport = Camera.ViewportSize
 
     if Viewport.X < 600 then
-        UI.Main.Size = UDim2.new(0.92, 0, 0.82, 0)
+        UI.Main.Size = UDim2.new(0.92, 0, 0.78, 0)
         UI.Main.Position = UDim2.fromScale(0.5, 0.5)
     else
-        UI.Main.Size = UDim2.fromOffset(340, 510)
-        UI.Main.Position = UDim2.new(0.5, -170, 0.5, -255)
+        UI.Main.Size = UDim2.fromOffset(300, 440)
+        UI.Main.Position = UDim2.new(0.5, -150, 0.5, -220)
     end
 end
 
@@ -559,7 +550,7 @@ if workspace.CurrentCamera then
 end
 
 --==================================================
--- RESPAWN HANDLING
+-- RESPAWN
 --==================================================
 
 Player.CharacterAdded:Connect(function()
@@ -567,4 +558,4 @@ Player.CharacterAdded:Connect(function()
     UI.Status.Text = "Status: Character respawned."
 end)
 
-print("[Tween Controller v4] Loaded successfully.")
+print("[Tween Controller v5] Ready.")
