@@ -215,7 +215,7 @@ local function BuildInterface()
     Restore.TextColor3 = CONFIG.Text
     Restore.TextSize = 20
     Restore.Font = Enum.Font.GothamBold
-    Restore.Visible = false
+    Restore.Visible = true
     Restore.Active = true
     Restore.Parent = ScreenGui
 
@@ -526,7 +526,8 @@ end
 
 MakeDraggable(UI.Header, UI.Main)
 MakeDraggable(UI.Restore, UI.Restore)
-
+UI.Main.Visible = false
+UI.Restore.Visible = true
 --==================================================
 -- RESPONSIVE LAYOUT
 --==================================================
